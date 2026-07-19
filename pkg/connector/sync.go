@@ -377,7 +377,7 @@ func (lc *LineClient) FetchMessages(ctx context.Context, params bridgev2.FetchMe
 		HasMore:  false,
 		// Mark the restored chat as read so the silent backfill doesn't leave a
 		// stale unread badge — and so the forward batch send never notifies.
-		MarkRead: true,
+		MarkRead: false,
 	}, nil
 }
 
@@ -1624,17 +1624,11 @@ func (lc *LineClient) handleOperation(ctx context.Context, op line.Operation) {
 	case OpUnsendLocal, OpUnsendRemote:
 		chatMid := op.Param1
 		msgID := op.Param2
-		lc.UserLogin.Bridge.Log.Info().Str("msg_id", msgID).Str("chat_mid", chatMid).Int("op_type", op.Type).Msg("Received unsend operation")
+		lc.UserLogin.Bridge.Log.Info().Str("msg_id", msgID).Str("chat_mid", chatMid).Int("op_type", op.Type).Msg("Received unsend operation — preserving deleted message (Logger mode)")
 
-		ts, _ := op.CreatedTime.Int64()
-		lc.UserLogin.Bridge.QueueRemoteEvent(lc.UserLogin, &simplevent.MessageRemove{
-			EventMeta: simplevent.EventMeta{
-				Type:      bridgev2.RemoteEventMessageRemove,
-				PortalKey: networkid.PortalKey{ID: makePortalID(chatMid), Receiver: lc.UserLogin.ID},
-				Timestamp: time.UnixMilli(ts),
-			},
-			TargetMessage: networkid.MessageID(msgID),
-		})
+		// Logger mode: do NOT remove the message from Matrix.
+		// The original message content was already bridged and stays visible.
+		// This lets you read deleted/unsent LINE messages like Discord Logger bots.
 
 	case OpPredefinedReaction:
 		lc.wg.Add(1)
