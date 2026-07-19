@@ -1,0 +1,3 @@
+# ブリッジ・Synapseのデータ（認証情報・DB含む）
+bridge/data/
+synapse/data/

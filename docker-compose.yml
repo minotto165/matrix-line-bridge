@@ -1,0 +1,50 @@
+services:
+  # ───────────────────────────
+  # Matrix ホームサーバー (Synapse)
+  # ───────────────────────────
+  synapse:
+    image: docker.io/matrixdotorg/synapse:latest
+    container_name: matrix-synapse
+    restart: unless-stopped
+    ports:
+      - "8008:8008"   # Matrixクライアント通信用 HTTP
+    volumes:
+      - ./synapse/data:/data
+    environment:
+      - SYNAPSE_SERVER_NAME=localhost
+      - SYNAPSE_REPORT_STATS=yes
+    depends_on:
+      - synapse-db
+
+  # Synapse 用 PostgreSQL
+  synapse-db:
+    image: docker.io/postgres:16-alpine
+    container_name: matrix-synapse-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=synapse
+      - POSTGRES_USER=synapse
+      - POSTGRES_PASSWORD=synapse_secret_password
+    volumes:
+      - synapse-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────
+  # LINE ↔ Matrix ブリッジ (改造版)
+  # ───────────────────────────
+  bridge:
+    build:
+      context: ./bridge
+    container_name: matrix-line-bridge
+    restart: unless-stopped
+    volumes:
+      - ./bridge/data:/data
+    depends_on:
+      - synapse
+
+volumes:
+  synapse-db-data:
